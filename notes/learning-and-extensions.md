@@ -1,0 +1,26 @@
+# Learnings & Extensions
+
+## What this project covered
+
+Assessed the security, reliability, performance, and scalability of a three-tier web application on AWS by simulating real traffic and using CloudWatch to monitor compute and network activity. Configured infrastructure to align with the AWS Well-Architected Framework and three principles of good data architecture: prioritize security, plan for failure, and architect for scalability.
+
+## Key takeaways
+
+**Security is a default-deny problem, not a default-allow one.** The starting security group configuration (`0.0.0.0/0` on all ports) is a common real-world misconfiguration — it's easy to over-permission infrastructure during initial setup and forget to lock it down. Auditing existing security group rules before assuming they're correct is a habit worth building early.
+
+**Multi-AZ reliability is observable, not just theoretical.** Refreshing the application and watching the served instance and AZ change in real time made the abstraction of "fault tolerance" concrete. It's one thing to read that an Auto Scaling Group spans AZs — it's another to watch traffic actually shift between them.
+
+**Auto scaling thresholds involve a tradeoff between responsiveness and cost.** A 60-request threshold with a 60-second warm-up is aggressive — fine for a lab, but in production this would need tuning against real traffic patterns to avoid flapping (rapidly scaling up and down) which can itself create instability and cost.
+
+**Load testing reveals real numbers, not assumptions.** Running Apache Benchmark against 1,000,000 requests produced concrete data — 7,929 requests/sec, 81ms p99 latency, a 0.0003% failure rate. Having actual throughput and latency numbers is far more useful than assuming a system "should scale fine."
+
+## What I'd do differently / extend
+
+- Use Infrastructure as Code (Terraform) to manage the security group, launch template, and scaling policy changes instead of manual console edits — this lab made manual changes for learning purposes, but in production this should be version-controlled
+- Add a CloudWatch Alarm + SNS notification for security group changes, so unintended open ports are caught immediately rather than discovered manually
+- Test the scaling policy against a gradually ramping load (rather than an instant 1M-request burst) to observe how the warm-up period behaves under more realistic traffic patterns
+- Investigate whether a smaller instance type increment (e.g., t3.micro → t3.small rather than jumping to t3.nano) would have been more appropriate, since t3.nano's lower memory ceiling could become a bottleneck under sustained load — worth validating with a longer-duration test
+
+## Connection to data engineering
+
+This lab focused on the application/serving layer rather than data pipelines directly, but the underlying principles transfer directly to data infrastructure: a data pipeline's ingestion layer needs the same security hardening (restricting access to only required ports/sources), the same reliability thinking (can a single AZ failure take down an ETL job), and the same scalability validation (will the pipeline handle a 10x spike in source data volume without manual intervention).
